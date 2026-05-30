@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPL BEN TRE WIND POWER PLANT - Logbook</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --primary-blue: #1a4da1;
+            --bg-gray: #f0f2f5;
+            --text-dark: #333;
+            --border-color: #ddd;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { margin: 0; background: var(--bg-gray); color: var(--text-dark); }
+
+        /* Header chuyên nghiệp */
+        header {
+            background: var(--primary-blue);
+            color: white;
+            padding: 10px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .logo-area { display: flex; align-items: center; font-weight: bold; font-size: 1.2rem; letter-spacing: 1px; }
+        .user-area { display: flex; gap: 20px; align-items: center; }
+        .btn-logout { background: #e74c3c; color: white; border: none; padding: 6px 15px; border-radius: 4px; cursor: pointer; }
+
+        /* Bố cục 2 cột */
+        .wrapper { display: flex; height: calc(100vh - 50px); overflow: hidden; }
+
+        /* Cột trái: Lịch sử */
+        .sidebar {
+            width: 320px;
+            background: #fff;
+            border-right: 1px solid var(--border-color);
+            padding: 10px;
+            overflow-y: auto;
+        }
+        .sidebar-header { 
+            border-bottom: 2px solid var(--primary-blue); 
+            padding-bottom: 5px; 
+            margin-bottom: 10px; 
+            display: flex; align-items: center; gap: 8px; 
+        }
+        .sidebar-header h3 { margin: 0; font-size: 1.1rem; }
+        
+        /* Bộ lọc ngày tháng */
+        .history-filter {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed var(--border-color);
+        }
+        .history-filter label { font-size: 0.8rem; font-weight: bold; color: #555; }
+        .filter-controls { display: flex; gap: 5px; }
+        .filter-controls input { flex: 1; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; outline: none; font-size: 0.95rem;}
+        
+        #filter-date { color: transparent; transition: 0.2s; }
+        #filter-date:focus, #filter-date.has-value { color: var(--text-dark); }
+        
+        .btn-clear { background: #6c757d; color: white; border: none; padding: 0 10px; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .btn-clear:hover { background: #5a6268; }
+
+        /* Các thẻ lịch sử thu gọn */
+        .history-item {
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .history-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-color: var(--primary-blue); background: #f9fcff; }
+        
+        .date-icon { 
+            background: #fdf2e9; 
+            color: #e67e22; 
+            padding: 5px; 
+            border-radius: 6px; 
+            text-align: center; 
+            min-width: 45px; 
+        }
+        .history-info { flex: 1; }
+        .history-info .date-text { font-weight: bold; font-size: 0.85rem; margin-bottom: 0px; }
+        .shift-text { font-size: 0.75rem; color: #555; margin-bottom: 2px; font-weight: bold; }
+        .status-tag { font-size: 0.75rem; display: flex; align-items: center; gap: 5px; margin-top: 1px; }
+        
+        .tag-handover { color: #0056b3; font-weight: 500; }
+        .tag-receive { color: #28a745; font-weight: 500; }
+        .status-warn { color: #d35400 !important; font-weight: bold; }
+
+        /* Cột phải: Nội dung chính */
+        .main-content { flex: 1; padding: 15px 20px; overflow-y: auto; }
+        
+        /* Thanh công cụ */
+        .toolbar {
+            background: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .toolbar-group { display: flex; flex-direction: column; gap: 3px; }
+        .toolbar-group label { font-size: 0.7rem; color: #666; font-weight: bold; text-transform: uppercase; }
+        .toolbar select, .toolbar input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem;}
+
+        .btn-group { margin-left: auto; display: flex; gap: 8px; }
+        .btn-action { border: none; padding: 8px 15px; border-radius: 4px; color: white; cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: 500; font-size: 0.9rem;}
+        .btn-save { background: #1a4da1; }
+        .btn-print { background: #27ae60; }
+        .btn-new { background: #2980b9; }
+
+        /* Mẫu nhật ký */
+        .logbook-paper {
+            background: white;
+            padding: 30px;
+            width: 100%;
+            max-width: 900px;
+            margin: auto;
+            box-shadow: 0 0 15px rgba(0,0,0,0.08);
+        }
+        .log-title { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
+        .log-title h2 { margin: 0; text-transform: uppercase; font-size: 1.3rem; }
+        .log-title p { margin: 5px 0; color: #003399; font-weight: bold; font-size: 0.95rem; }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        th, td { border: 1px solid black; padding: 8px; vertical-align: top; }
+        th { background: #f2f2f2; font-size: 0.9rem; text-align: center; }
+        
+        textarea { width: 100%; border: none; outline: none; font-size: 0.95rem; resize: none; overflow: hidden; min-height: 25px; line-height: 1.5; font-family: inherit; }
+        .section-header { font-weight: bold; margin: 10px 0 5px 0; text-decoration: underline; font-size: 1rem; }
+
+        /* ---- Khu vực chữ ký ---- */
+        .signature-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid black; margin-top: 10px; }
+        .sig-box { padding: 15px 10px; text-align: center; border-right: 1px solid black; font-size: 0.95rem; }
+        .sig-box:last-child { border-right: none; }
+        
+        .sig-row { display: flex; justify-content: center; align-items: center; margin-bottom: 15px; white-space: nowrap; gap: 5px; }
+
+        .sig-box .time-input { border: none; border-bottom: 1px dotted #000; outline: none; font-family: inherit; font-size: 0.95rem; width: 90px; text-align: center; }
+        .sig-box .time-input::-webkit-calendar-picker-indicator { display: none; }
+
+        .sig-box select { 
+            border: none; 
+            border-bottom: 1px dotted #000; 
+            text-align: center; 
+            text-align-last: center; 
+            width: 200px; 
+            padding: 4px; 
+            outline: none; 
+            font-family: inherit; 
+            font-size: 0.95rem; 
+            background: transparent; 
+            cursor: pointer; 
+        }
+
+        /* Màn hình đăng nhập */
+        #login-overlay { position: fixed; inset: 0; background: var(--primary-blue); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+        .login-card { background: white; padding: 40px; border-radius: 12px; width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .login-card input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; }
+
+        #next-shift-notes { color: red; font-weight: 500; }
+
+        /* DÀNH CHO MÁY IN */
+        @media print {
+            @page { size: A4 portrait; margin: 10mm; }
+            body { background: white; font-size: 13px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .sidebar, .toolbar, header, .btn-new { display: none !important; }
+            .wrapper { height: auto; overflow: visible; display: block; }
+            .main-content { padding: 0; overflow: visible; }
+            .logbook-paper { box-shadow: none; width: 100%; max-width: 100%; padding: 0; margin: 0; }
+            .log-title { padding-bottom: 5px; margin-bottom: 10px; }
+            .log-title h2 { font-size: 1.2rem; }
+            .log-title p { margin-top: 3px; font-size: 0.9rem; }
+            .section-header { margin: 8px 0 5px 0; font-size: 1rem; }
+            table { margin-bottom: 10px; }
+            th, td { padding: 6px; }
+            textarea { font-size: 13px; }
+            .signature-grid { margin-top: 15px; }
+            .sig-box { padding: 10px; }
+            .sig-box .time-input { font-size: 13px; width: 80px; }
+            .sig-box select { font-size: 13px; width: 150px; -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="login-overlay">
+    <div class="login-card">
+        <h2 style="color: var(--primary-blue)">VPL BẾN TRE</h2>
+        <p>Vận hành Nhà máy điện gió</p>
+        <input type="text" id="username" placeholder="Tên đăng nhập">
+        <input type="password" id="password" placeholder="Mật khẩu">
+        <button class="btn-action btn-save" style="width: 100%; justify-content: center;" onclick="doLogin()">ĐĂNG NHẬP</button>
+    </div>
+</div>
+
+<header>
+    <div class="logo-area">
+        VPL BEN TRE WIND POWER PLANT
+    </div>
+    <div class="user-area">
+        <span id="current-user-info"><i class="fa-solid fa-user"></i> Chưa đăng nhập</span>
+        <button class="btn-logout" onclick="location.reload()">Đăng xuất</button>
+    </div>
+</header>
+
+<div class="wrapper">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <i class="fa-solid fa-list-check" style="color: var(--primary-blue)"></i>
+            <h3>Lịch sử bàn giao ca</h3>
+        </div>
+        
+        <div class="history-filter">
+            <label>Xem lại ca theo ngày:</label>
+            <div class="filter-controls">
+                <input type="date" id="filter-date" onchange="this.classList.toggle('has-value', this.value !== ''); renderHistory()">
+                <button class="btn-clear" onclick="clearFilter()" title="Quay lại 3 ngày gần nhất"><i class="fa-solid fa-rotate-left"></i></button>
+            </div>
+        </div>
+
+        <div id="history-list"></div>
+    </div>
+
+    <div class="main-content">
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <label>Ngày trực</label>
+                <input type="date" id="input-date">
+            </div>
+            <div class="toolbar-group">
+                <label>Ca trực</label>
+                <select id="input-shift">
+                    <option>Ca Đêm</option>
+                    <option>Ca Ngày</option>
+                </select>
+            </div>
+            <div class="btn-group">
+                <button class="btn-action btn-save" onclick="saveData()">
+                    <i class="fa-solid fa-floppy-disk"></i> Lưu dữ liệu
+                </button>
+                <button class="btn-action btn-print" onclick="window.print()">
+                    <i class="fa-solid fa-file-pdf"></i> In / Xuất PDF
+                </button>
+                <button class="btn-action btn-new" onclick="createNew()">
+                    <i class="fa-solid fa-plus"></i> Tạo mới
+                </button>
+            </div>
+        </div>
+
+        <div class="logbook-paper" id="log-paper">
+            <div class="log-title">
+                <h2>NHẬT KÝ VẬN HÀNH NHÀ MÁY ĐIỆN GIÓ VPL BẾN TRE</h2>
+                <p id="display-info">Ca ..., Ngày ... Tháng ... Năm ...</p>
+            </div>
+
+            <div class="section-header">I. TÌNH HÌNH VẬN HÀNH TRONG CA:</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 110px;">Thời gian</th>
+                        <th>Tình hình vận hành trong ca trực</th>
+                    </tr>
+                </thead>
+                <tbody id="op-rows">
+                </tbody>
+            </table>
+            <button class="btn-action btn-new" style="padding: 4px 10px; font-size: 0.8rem; margin-top: -10px; margin-bottom: 10px;" onclick="addRow()">+ Thêm dòng</button>
+
+            <div class="section-header">II. Tình hình vận hành thiết bị:</div>
+            <textarea id="equipment-status" rows="2" oninput="autoExpand(this)"></textarea>
+
+            <div class="section-header">III. Những điều ca sau cần chú ý:</div>
+            <textarea id="next-shift-notes" rows="2" oninput="autoExpand(this)"></textarea>
+
+            <div class="signature-grid">
+                <div class="sig-box">
+                    <div style="font-weight: bold; margin-bottom: 15px;">BÊN GIAO CA</div>
+                    
+                    <div class="sig-row">
+                        Giao ca lúc: <input type="text" id="time-handover" class="time-input" onfocus="this.type='time'" onblur="if(!this.value) this.type='text'">
+                    </div>
+                    
+                    <div class="sig-row" style="margin-bottom: 35px;">
+                        Họ tên: 
+                        <select id="name-handover">
+                            <option value="">-- Chọn người giao ca --</option>
+                            <option value="Nguyễn Hồng Phúc">Nguyễn Hồng Phúc</option>
+                            <option value="Nguyễn Thanh Huy">Nguyễn Thanh Huy</option>
+                            <option value="Hồ Văn Khánh">Hồ Văn Khánh</option>
+                            <option value="Trương Khánh Linh">Trương Khánh Linh</option>
+                        </select>
+                    </div>
+                    <div>(Chữ ký)</div>
+                </div>
+                
+                <div class="sig-box">
+                    <div style="font-weight: bold; margin-bottom: 15px;">BÊN NHẬN CA</div>
+                    
+                    <div class="sig-row">
+                        Nhận ca lúc: <input type="text" id="time-receive" class="time-input" onfocus="this.type='time'" onblur="if(!this.value) this.type='text'">
+                    </div>
+                    
+                    <div class="sig-row" style="margin-bottom: 35px;">
+                        Họ tên: 
+                        <select id="name-receive">
+                            <option value="">-- Chọn người nhận ca --</option>
+                            <option value="Nguyễn Hồng Phúc">Nguyễn Hồng Phúc</option>
+                            <option value="Nguyễn Thanh Huy">Nguyễn Thanh Huy</option>
+                            <option value="Hồ Văn Khánh">Hồ Văn Khánh</option>
+                            <option value="Trương Khánh Linh">Trương Khánh Linh</option>
+                        </select>
+                    </div>
+                    <div>(Chữ ký)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const usersDatabase = {
+        'admin': { pass: '123456', role: 'Quản lý' },
+        'phucnh': { pass: '123456', role: 'Kỹ sư trưởng' },
+        'huynt2': { pass: '123456', role: 'Trưởng ca' },
+        'linhtk2': { pass: '123456', role: 'Trưởng ca' },
+        'khanhhv': { pass: '123456', role: 'Trưởng ca' }
+    };
+
+    let currentUser = null;
+    let logs = JSON.parse(localStorage.getItem('vpl_logs_pro')) || [];
+
+    function doLogin() {
+        const u = document.getElementById('username').value.toLowerCase().trim();
+        const p = document.getElementById('password').value;
+        
+        if (usersDatabase[u] && usersDatabase[u].pass === p) {
+            currentUser = { username: u, role: usersDatabase[u].role };
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('current-user-info').innerHTML = 
+                `<i class="fa-solid fa-user-check"></i> <strong>${currentUser.role}</strong> - ${currentUser.username}`;
+            initApp();
+        } else {
+            alert('Sai tài khoản hoặc mật khẩu!');
+        }
+    }
+
+    function initApp() {
+        document.getElementById('input-date').valueAsDate = new Date();
+        createNew();
+        renderHistory();
+    }
+
+    // CẬP NHẬT: Cột thời gian giờ đây là một textarea tương tự cột nội dung
+    function addRow(time = '', content = '') {
+        const tbody = document.getElementById('op-rows');
+        const tr = document.createElement('tr');
+        
+        tr.innerHTML = `
+            <td><textarea oninput="autoExpand(this)" style="width:100%; border:none; outline:none; font-family:inherit; font-size: 0.95rem; text-align: center; padding:0; margin:0;" rows="1">${time}</textarea></td>
+            <td><textarea oninput="autoExpand(this)" style="width:100%; border:none; outline:none; font-family:inherit; font-size: 0.95rem; padding:0; margin:0;" rows="1">${content}</textarea></td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    function autoExpand(textarea) {
+        textarea.style.height = 'inherit';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
+    function createNew() {
+        document.getElementById('op-rows').innerHTML = '';
+        for(let i=0; i<6; i++) addRow();
+        document.getElementById('equipment-status').value = '';
+        document.getElementById('next-shift-notes').value = '';
+        
+        const thandover = document.getElementById('time-handover');
+        thandover.value = ''; thandover.type = 'text';
+        
+        const treceive = document.getElementById('time-receive');
+        treceive.value = ''; treceive.type = 'text';
+        
+        document.getElementById('name-handover').value = '';
+        document.getElementById('name-receive').value = '';
+        updateDisplayInfo();
+        
+        document.querySelectorAll('textarea').forEach(t => autoExpand(t));
+    }
+
+    function updateDisplayInfo() {
+        const d = new Date(document.getElementById('input-date').value);
+        const shift = document.getElementById('input-shift').value;
+        if(!isNaN(d)) {
+            document.getElementById('display-info').innerText = 
+                `${shift}, Ngày ${d.getDate().toString().padStart(2,'0')} Tháng ${(d.getMonth()+1).toString().padStart(2,'0')} Năm ${d.getFullYear()}`;
+        }
+    }
+
+    document.getElementById('input-date').onchange = updateDisplayInfo;
+    document.getElementById('input-shift').onchange = updateDisplayInfo;
+
+    function saveData() {
+        const date = document.getElementById('input-date').value;
+        const shift = document.getElementById('input-shift').value;
+        
+        const rowInputs = document.querySelectorAll('#op-rows tr');
+        let opData = [];
+        rowInputs.forEach(tr => {
+            // Lấy giá trị từ cả 2 textarea trong cùng 1 hàng
+            const textareas = tr.querySelectorAll('textarea');
+            const time = textareas[0].value;
+            const text = textareas[1].value;
+            if(time || text) opData.push({time, text});
+        });
+
+        const entry = {
+            id: date + '_' + shift,
+            date, shift, opData,
+            eq: document.getElementById('equipment-status').value,
+            note: document.getElementById('next-shift-notes').value,
+            hTime: document.getElementById('time-handover').value,
+            hName: document.getElementById('name-handover').value,
+            rTime: document.getElementById('time-receive').value,
+            rName: document.getElementById('name-receive').value,
+            timestamp: new Date().getTime()
+        };
+
+        logs = logs.filter(item => item.id !== entry.id);
+        logs.push(entry);
+        localStorage.setItem('vpl_logs_pro', JSON.stringify(logs));
+        alert('Đã lưu dữ liệu thành công!');
+        renderHistory();
+    }
+
+    function clearFilter() {
+        const fd = document.getElementById('filter-date');
+        fd.value = '';
+        fd.classList.remove('has-value');
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('history-list');
+        list.innerHTML = '';
+        
+        const filterDate = document.getElementById('filter-date').value;
+        let filteredLogs = [...logs];
+
+        if (filterDate) {
+            filteredLogs = filteredLogs.filter(log => log.date === filterDate);
+        } else {
+            const uniqueDates = [...new Set(logs.map(l => l.date))].sort((a,b) => new Date(b) - new Date(a));
+            const last3Dates = uniqueDates.slice(0, 3);
+            filteredLogs = filteredLogs.filter(log => last3Dates.includes(log.date));
+        }
+        
+        const sortedLogs = filteredLogs.sort((a,b) => b.timestamp - a.timestamp);
+
+        if (sortedLogs.length === 0) {
+            list.innerHTML = '<div style="text-align:center; color:#888; padding: 20px 0; font-size:0.8rem;">Không có nhật ký nào</div>';
+            return;
+        }
+
+        sortedLogs.forEach(log => {
+            const d = new Date(log.date);
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            const isUnknownReceive = !log.rName;
+            const isUnknownHandover = !log.hName;
+            
+            item.innerHTML = `
+                <div class="date-icon">
+                    <div style="font-size: 1.1rem; font-weight: bold;">${d.getDate()}</div>
+                    <div style="font-size: 0.65rem;">TH ${d.getMonth()+1}</div>
+                </div>
+                <div class="history-info">
+                    <div class="date-text">${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear()}</div>
+                    <div class="shift-text">${log.shift}</div>
+                    
+                    <div class="status-tag tag-handover">
+                        <i class="fa-solid fa-user-minus"></i> 
+                        <span class="${isUnknownHandover ? 'status-warn' : ''}">
+                            Giao: ${log.hName || '...'}
+                        </span>
+                    </div>
+                    
+                    <div class="status-tag tag-receive">
+                        <i class="fa-solid fa-user-check"></i> 
+                        <span class="${isUnknownReceive ? 'status-warn' : ''}">
+                            Nhận: ${log.rName || '...'}
+                        </span>
+                    </div>
+                </div>
+            `;
+            item.onclick = () => loadLog(log.id);
+            list.appendChild(item);
+        });
+    }
+
+    function loadLog(id) {
+        const log = logs.find(item => item.id === id);
+        if(!log) return;
+
+        document.getElementById('input-date').value = log.date;
+        document.getElementById('input-shift').value = log.shift;
+        document.getElementById('op-rows').innerHTML = '';
+        
+        if (log.opData.length > 0) {
+            log.opData.forEach(row => addRow(row.time, row.text));
+        } else {
+            for(let i=0; i<6; i++) addRow();
+        }
+        
+        document.getElementById('equipment-status').value = log.eq;
+        document.getElementById('next-shift-notes').value = log.note;
+        
+        const th = document.getElementById('time-handover');
+        th.value = log.hTime || '';
+        th.type = log.hTime ? 'time' : 'text';
+        
+        const tr = document.getElementById('time-receive');
+        tr.value = log.rTime || '';
+        tr.type = log.rTime ? 'time' : 'text';
+        
+        document.getElementById('name-handover').value = log.hName;
+        document.getElementById('name-receive').value = log.rName;
+        
+        updateDisplayInfo();
+        setTimeout(() => {
+            document.querySelectorAll('textarea').forEach(t => autoExpand(t));
+        }, 10);
+    }
+</script>
+
+</body>
+</html>

@@ -461,28 +461,40 @@ const usersDatabase = {
         renderHistory();
 
         // Đẩy lên Google Sheets ở chế độ ngầm
+      // ... (phần trên của hàm saveData giữ nguyên) ...
+
+        // Đẩy lên Google Sheets ở chế độ ngầm
         try {
             const btnSave = document.querySelector('.btn-save');
             const originalText = btnSave.innerHTML;
             btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...';
             btnSave.disabled = true;
 
-            await fetch(API_URL, {
-                redirect: "follow", 
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify(entry),
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+            // Chuyển đổi dữ liệu thành chuỗi an toàn để gắn vào URL
+            const encodedData = encodeURIComponent(JSON.stringify(entry));
+            const saveUrl = API_URL + "?action=save&data=" + encodedData;
+
+            const response = await fetch(saveUrl, {
+                 redirect: "follow",
+                 method: 'GET' // Đã chuyển sang GET để tránh bị chặn
             });
+            
+            const result = await response.json();
             
             btnSave.innerHTML = originalText;
             btnSave.disabled = false;
-            alert('Đã lưu dữ liệu lên hệ thống đám mây thành công!');
+            
+            if(result.status === "success") {
+                alert('Đã lưu dữ liệu lên hệ thống đám mây thành công!');
+            } else {
+                alert('Có lỗi từ máy chủ: ' + result.msg);
+            }
+            
         } catch (error) {
-            alert('Lỗi lưu dữ liệu lên hệ thống đám mây! Dữ liệu chỉ đang hiển thị tạm thời trên máy này.');
+            alert('Lỗi kết nối mạng! Dữ liệu chỉ hiển thị tạm trên máy này.');
             console.error(error);
         }
-    }
+    } // kết thúc hàm saveData
 
     function clearFilter() {
         const fd = document.getElementById('filter-date');

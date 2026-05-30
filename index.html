@@ -336,8 +336,26 @@
     </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
 <script>
-const usersDatabase = {
+    // 1. DÁN ĐOẠN MÃ CẤU HÌNH FIREBASE CỦA BẠN VÀO ĐÂY
+    const firebaseConfig = {
+        apiKey: "AIzaSyB-xxxxxxxxxxxxxxx",
+        authDomain: "vpl-logbook.firebaseapp.com",
+        databaseURL: "https://vpl-logbook-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "vpl-logbook",
+        storageBucket: "vpl-logbook.appspot.com",
+        messagingSenderId: "123456789",
+        appId: "1:123456789:web:abcdef"
+    };
+
+    // 2. Khởi tạo Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    const usersDatabase = {
         'admin': { pass: '123456', role: 'Quản lý' },
         'phucnh': { pass: '123456', role: 'Kỹ sư trưởng' },
         'huynt2': { pass: '123456', role: 'Trưởng ca' },
@@ -346,10 +364,7 @@ const usersDatabase = {
     };
 
     let currentUser = null;
-    let logs = []; // Không dùng localStorage nữa
-
-    // DÁN ĐƯỜNG LINK GOOGLE APPS SCRIPT CỦA BẠN VÀO ĐÂY
-    const API_URL = "https://script.google.com/macros/s/AKfycbwYO7xHjjMtNVwapFKeF41xBLAiGz9pxkfvjQPsJwh6ey-96KRItdrCJmuv_oqFYmss0A/exec"; 
+    let logs = []; 
 
     function doLogin() {
         const u = document.getElementById('username').value.toLowerCase().trim();
@@ -366,21 +381,24 @@ const usersDatabase = {
         }
     }
 
-    // --- Cập nhật hàm initApp kết nối Sheets ---
-    async function initApp() {
+    // --- Cập nhật hàm initApp: Tự động lắng nghe dữ liệu từ Firebase ---
+    function initApp() {
         document.getElementById('input-date').valueAsDate = new Date();
         createNew();
+        document.getElementById('history-list').innerHTML = '<div style="text-align:center; padding: 20px;">Đang tải dữ liệu ca trực...</div>';
         
-        document.getElementById('history-list').innerHTML = '<div style="text-align:center; padding: 20px;">Đang tải dữ liệu...</div>';
-        
-        try {
-            const response = await fetch(API_URL);
-            logs = await response.json();
+        // Lệnh "on" giúp ứng dụng liên tục đồng bộ dữ liệu theo thời gian thực
+        database.ref('vpl_logs/').on('value', (snapshot) => {
+            const data = snapshot.val();
+            logs = [];
+            if (data) {
+                // Chuyển đổi Object từ Firebase thành Array
+                for (let key in data) {
+                    logs.push(data[key]);
+                }
+            }
             renderHistory();
-        } catch (error) {
-            console.error(error);
-            alert("Lỗi kết nối máy chủ Google Sheets!");
-        }
+        });
     }
 
     function addRow(time = '', content = '') {
@@ -429,8 +447,8 @@ const usersDatabase = {
     document.getElementById('input-date').onchange = updateDisplayInfo;
     document.getElementById('input-shift').onchange = updateDisplayInfo;
 
-    // --- Cập nhật hàm saveData đẩy lên Sheets ---
-    async function saveData() {
+    // --- Cập nhật hàm saveData: Đẩy thẳng lên Firebase ---
+    function saveData() {
         const date = document.getElementById('input-date').value;
         const shift = document.getElementById('input-shift').value;
         
@@ -444,7 +462,7 @@ const usersDatabase = {
         });
 
         const entry = {
-            id: date + '_' + shift,
+            id: date + '_' + shift, // Firebase sẽ dùng cái này làm thư mục lưu trữ
             date, shift, opData,
             eq: document.getElementById('equipment-status').value,
             note: document.getElementById('next-shift-notes').value,
@@ -455,46 +473,24 @@ const usersDatabase = {
             timestamp: new Date().getTime()
         };
 
-        // Cập nhật giao diện lập tức
-        logs = logs.filter(item => item.id !== entry.id);
-        logs.push(entry);
-        renderHistory();
+        const btnSave = document.querySelector('.btn-save');
+        const originalText = btnSave.innerHTML;
+        btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...';
+        btnSave.disabled = true;
 
-        // Đẩy lên Google Sheets ở chế độ ngầm
-      // ... (phần trên của hàm saveData giữ nguyên) ...
-
-        // Đẩy lên Google Sheets ở chế độ ngầm
-        try {
-            const btnSave = document.querySelector('.btn-save');
-            const originalText = btnSave.innerHTML;
-            btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...';
-            btnSave.disabled = true;
-
-            // Chuyển đổi dữ liệu thành chuỗi an toàn để gắn vào URL
-            const encodedData = encodeURIComponent(JSON.stringify(entry));
-            const saveUrl = API_URL + "?action=save&data=" + encodedData;
-
-            const response = await fetch(saveUrl, {
-                 redirect: "follow",
-                 method: 'GET' // Đã chuyển sang GET để tránh bị chặn
+        // Lưu dữ liệu vào nút 'vpl_logs/id_ca_truc'
+        database.ref('vpl_logs/' + entry.id).set(entry)
+            .then(() => {
+                alert('Đã đồng bộ lên hệ thống điều hành thành công!');
+            })
+            .catch((error) => {
+                alert('Lỗi lưu dữ liệu: ' + error.message);
+            })
+            .finally(() => {
+                btnSave.innerHTML = originalText;
+                btnSave.disabled = false;
             });
-            
-            const result = await response.json();
-            
-            btnSave.innerHTML = originalText;
-            btnSave.disabled = false;
-            
-            if(result.status === "success") {
-                alert('Đã lưu dữ liệu lên hệ thống đám mây thành công!');
-            } else {
-                alert('Có lỗi từ máy chủ: ' + result.msg);
-            }
-            
-        } catch (error) {
-            alert('Lỗi kết nối mạng! Dữ liệu chỉ hiển thị tạm trên máy này.');
-            console.error(error);
-        }
-    } // kết thúc hàm saveData
+    }
 
     function clearFilter() {
         const fd = document.getElementById('filter-date');
@@ -569,14 +565,16 @@ const usersDatabase = {
         document.getElementById('input-shift').value = log.shift;
         document.getElementById('op-rows').innerHTML = '';
         
-        if (log.opData.length > 0) {
-            log.opData.forEach(row => addRow(row.time, row.text));
+        // Cần đảm bảo nếu Firebase trả về opData bị rỗng/undefined thì không bị lỗi
+        const opDataRows = log.opData || [];
+        if (opDataRows.length > 0) {
+            opDataRows.forEach(row => addRow(row.time, row.text));
         } else {
             for(let i=0; i<6; i++) addRow();
         }
         
-        document.getElementById('equipment-status').value = log.eq;
-        document.getElementById('next-shift-notes').value = log.note;
+        document.getElementById('equipment-status').value = log.eq || '';
+        document.getElementById('next-shift-notes').value = log.note || '';
         
         const th = document.getElementById('time-handover');
         th.value = log.hTime || '';
@@ -586,8 +584,8 @@ const usersDatabase = {
         tr.value = log.rTime || '';
         tr.type = log.rTime ? 'time' : 'text';
         
-        document.getElementById('name-handover').value = log.hName;
-        document.getElementById('name-receive').value = log.rName;
+        document.getElementById('name-handover').value = log.hName || '';
+        document.getElementById('name-receive').value = log.rName || '';
         
         updateDisplayInfo();
         setTimeout(() => {
